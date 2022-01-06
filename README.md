@@ -144,7 +144,18 @@ CLOUDINARY_SECRET = ******
 ```javascript
 
 module.exports = [
+module.exports = [
   // ...
+
+  'strapi::errors',
+  'strapi::security',
+  'strapi::cors',
+  'strapi::poweredBy',
+  'strapi::logger',
+  'strapi::query',
+  'strapi::body',
+  'strapi::favicon',
+  'strapi::public',
   {
     name: 'strapi::security',
     config: {
@@ -159,17 +170,9 @@ module.exports = [
       },
     },
   },
-  'strapi::errors',
-  'strapi::security',
-  'strapi::cors',
-  'strapi::poweredBy',
-  'strapi::logger',
-  'strapi::query',
-  'strapi::body',
-  'strapi::favicon',
-  'strapi::public',
   // ...
 ];
+
 ```
 
 
