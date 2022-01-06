@@ -1,57 +1,177 @@
-# 🚀 Getting started with Strapi
+# Strapi application
 
-Strapi comes with a full featured [Command Line Interface](https://docs.strapi.io/developer-docs/latest/developer-resources/cli/CLI.html) (CLI) which lets you scaffold and manage your project in seconds.
+Esta app usa github action para desplagar en el container registry de heroku:
 
-### `develop`
+## PASOS
 
-Start your Strapi application with autoReload enabled. [Learn more](https://docs.strapi.io/developer-docs/latest/developer-resources/cli/CLI.html#strapi-develop)
+1. **Crear app en heroku** y en la pestana de "Resources" agregar(add-ons) "Heroku Postgres"
 
-```
-npm run develop
-# or
-yarn develop
-```
+2. **Crear applicacion de strapi V4**, seleccionar 'custom' y seleccionar **Postgres** como base de datos(buscar credenciales en 'resources> settings> View credentials' de la BDs creada en Heroku) y agregar los campos solicitados por el CLI de strapi(nombre BDs,host,port,username,password)
+   * **NOTA** colocar en 'enable ssl connection' ==> N
+   * **NOTA 2:** **Crear .env**. Estas credenciales de BDs se deben agregar como variables de entorno en Heroku y de forma local(ya que por defecto estas credenciales se agregan de forma directa en el archivo: /config/database.js)
 
-### `start`
-
-Start your Strapi application with autoReload disabled. [Learn more](https://docs.strapi.io/developer-docs/latest/developer-resources/cli/CLI.html#strapi-start)
-
-```
-npm run start
-# or
-yarn start
+```npm
+npx create-strapi-app@latest .
 ```
 
-### `build`
+* ejemplo .env
 
-Build your admin panel. [Learn more](https://docs.strapi.io/developer-docs/latest/developer-resources/cli/CLI.html#strapi-build)
-
+```env
+DATABASE_HOST = ec2-34-197-195-181.compute-1.amazonaws.com
+DATABASE_NAME = d4ki0p1qamdm43
+DATABASE_USERNAME = nrynmriystsmyh
+DATABASE_PASSWORD = 455f3c0ccd12ec5fcb6c320f372e3d5093390671e6caf525c384164f4013b605
 ```
-npm run build
-# or
-yarn build
+
+
+* Ejemplor de 'database.js':
+
+```javascript
+module.exports = ({ env }) => ({
+  connection: {
+    client: 'postgres',
+    connection: {
+      host: process.env.DATABASE_HOST,
+      port: env.int('DATABASE_PORT', 5432),
+      database: process.env.DATABASE_NAME,
+      user: process.env.DATABASE_USERNAME,
+      password: process.env.DATABASE_PASSWORD,
+      schema: env('DATABASE_SCHEMA', 'public'), // Not required
+      ssl: {
+        rejectUnauthorized: env.bool('DATABASE_SSL_SELF', false), // For self-signed certificates
+      },
+    },
+    debug: false,
+  },
+});
 ```
 
-## ⚙️ Deployment
+1. **Agregar Dockerfile y .dockerignore**
 
-Strapi gives you many possible deployment options for your project. Find the one that suits you on the [deployment section of the documentation](https://docs.strapi.io/developer-docs/latest/setup-deployment-guides/deployment.html).
+```Dockerfile
+FROM node:16
 
-## 📚 Learn more
+WORKDIR /usr/src/api
 
-- [Resource center](https://strapi.io/resource-center) - Strapi resource center.
-- [Strapi documentation](https://docs.strapi.io) - Official Strapi documentation.
-- [Strapi tutorials](https://strapi.io/tutorials) - List of tutorials made by the core team and the community.
-- [Strapi blog](https://docs.strapi.io) - Official Strapi blog containing articles made by the Strapi team and the community.
-- [Changelog](https://strapi.io/changelog) - Find out about the Strapi product updates, new features and general improvements.
+COPY package*.json ./
 
-Feel free to check out the [Strapi GitHub repository](https://github.com/strapi/strapi). Your feedback and contributions are welcome!
+RUN npm install
 
-## ✨ Community
+COPY . .
 
-- [Discord](https://discord.strapi.io) - Come chat with the Strapi community including the core team.
-- [Forum](https://forum.strapi.io/) - Place to discuss, ask questions and find answers, show your Strapi project and get feedback or just talk with other Community members.
-- [Awesome Strapi](https://github.com/strapi/awesome-strapi) - A curated list of awesome things related to Strapi.
+RUN npm run build
 
----
+EXPOSE 1337
 
-<sub>🤫 Psst! [Strapi is hiring](https://strapi.io/careers).</sub>
+CMD ["npm", "start"]
+```
+
+4. **Crear repositorio en Github inicializar proyecto en git y subir al repo remoto,** y en opcion de "actions" agregar el siguiente github action(se deben agregar los sig. secrets al repositorio de github: HEROKU_API_KEY y HEROKU_APP_NAME )
+
+ **NOTA:** Buscar HEROKU_API_KEY en heroku "Account Settings"(arriba a la derecha)> Copiar "API Key", finalmente agregar en github sevcrets del repositorio creado
+
+```npm
+name: Push Container to Heroku
+
+on: 
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Login to Heroku Container registry
+      env: 
+        HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+      run: heroku container:login 
+    - name: Build and push
+      env:
+        HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+      run: heroku container:push -a ${{ secrets.HEROKU_APP_NAME }} web 
+    - name: Release
+      env:
+        HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+      run: heroku container:release -a ${{ secrets.HEROKU_APP_NAME }} web 
+```
+
+5. **Crear cuenta en Cloudinary**:
+
+* Instalar:
+  
+  ```npm
+  npm i @strapi/provider-upload-cloudinary
+  ```
+
+* Agregar el sig archivo(config/plugins.js):
+  
+  ```javascript
+    module.exports = ({ env }) => ({
+        // ...
+        upload: {
+            config: {
+                provider: 'cloudinary',
+                providerOptions: {
+                    cloud_name: env('CLOUDINARY_NAME'),
+                    api_key: env('CLOUDINARY_KEY'),
+                    api_secret: env('CLOUDINARY_SECRET'),
+                },
+                actionOptions: {
+                    upload: {},
+                    delete: {},
+                },
+            },
+        },
+        // ...
+    });
+
+    ```
+
+*  **Agregar las sig. variables de entorno en el proyecto y en Heroku**(se obtienen en el dashboard de Cloudinary)
+  
+
+```cmd
+
+CLOUDINARY_NAME = ********
+CLOUDINARY_KEY = ********
+CLOUDINARY_SECRET = ******
+```
+
+* El archivo middleware.js agregar:
+
+```javascript
+
+module.exports = [
+  // ...
+  {
+    name: 'strapi::security',
+    config: {
+      contentSecurityPolicy: {
+        useDefaults: true,
+        directives: {
+          'connect-src': ["'self'", 'https:'],
+          'img-src': ["'self'", 'data:', 'blob:', 'res.cloudinary.com'],
+          'media-src': ["'self'", 'data:', 'blob:', 'res.cloudinary.com'],
+          upgradeInsecureRequests: null,
+        },
+      },
+    },
+  },
+  'strapi::errors',
+  'strapi::security',
+  'strapi::cors',
+  'strapi::poweredBy',
+  'strapi::logger',
+  'strapi::query',
+  'strapi::body',
+  'strapi::favicon',
+  'strapi::public',
+  // ...
+];
+```
+
+
+6. Cada vez que se haga un push a la rama master, se compilara el proyecto y se generara una imagen que se subira al container registry de heroku.
+   * **ABRIR APP** ==> ir a la consola de heroku del proyecto creado y seleccionar "Open App"
