@@ -28,7 +28,10 @@
     "description": {
       "type": "richtext"
     },
-    "url": {
+    "urlProject": {
+      "type": "string"
+    },
+    "urlImage": {
       "type": "string"
     }
   }
